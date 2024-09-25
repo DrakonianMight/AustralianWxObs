@@ -62,45 +62,61 @@ def process_json_file(json_file_path):
             'date': entry.get('aifstime_utc'),
             'station_id': entry.get('wmo'),
             'name': data.get('observations', {}).get('header', [{}])[0].get('name'),
-            'timezone': data.get('observations', {}).get('header', [{}])[0].get('time_zone_name'),
             'latitude': entry.get('lat'),
             'longitude': entry.get('lon'),
-            'wind_direction_deg': entry.get('wind_dir_deg'),
-            'wind_speed_kmh': entry.get('wind_spd_kmh')
+            'apparent_t': entry.get('apparent_t'),      # Apparent temperature
+            'gust_kmh': entry.get('gust_kmh'),          # Wind gust in km/h
+            'gust_kt': entry.get('gust_kt'),            # Wind gust in knots
+            'air_temp': entry.get('air_temp'),          # Air temperature
+            'dewpt': entry.get('dewpt'),                # Dew point temperature
+            'press': entry.get('press'),                # Atmospheric pressure
+            'press_msl': entry.get('press_msl'),        # Pressure at mean sea level
+            'rel_hum': entry.get('rel_hum'),            # Relative humidity
+            'wind_direction_deg': entry.get('wind_dir_deg'),  # Wind direction in degrees
+            'wind_speed_kmh': entry.get('wind_spd_kmh') # Wind speed in km/h
         })
     
     df = pd.DataFrame(records)
     return df
+
 
 def store_data_in_db(df):
     """Store data in SQLite database, avoiding duplicates."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    # Create table if it doesn't exist
+    # Create table if it doesn't exist (updated with additional columns)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS observations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT,
             station_id TEXT,
             name TEXT,
-            timezone TEXT,
             latitude REAL,
             longitude REAL,
-            wind_direction_deg REAL,
-            wind_speed_kmh REAL
+            apparent_t REAL,          -- Apparent temperature
+            gust_kmh REAL,            -- Wind gust in km/h
+            gust_kt REAL,             -- Wind gust in knots
+            air_temp REAL,            -- Air temperature
+            dewpt REAL,               -- Dew point temperature
+            press REAL,               -- Atmospheric pressure
+            press_msl REAL,           -- Pressure at mean sea level
+            rel_hum REAL,             -- Relative humidity
+            wind_direction_deg REAL,  -- Wind direction in degrees
+            wind_speed_kmh REAL       -- Wind speed in km/h
         )
     ''')
 
-    # Check for duplicates and insert new data
+    # Insert data into the database
     for _, row in df.iterrows():
         cursor.execute('''
-            INSERT OR IGNORE INTO observations (date, station_id, name, timezone, latitude, longitude, wind_direction_deg, wind_speed_kmh)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (row['date'], row['station_id'], row['name'], row['timezone'], row['latitude'], row['longitude'], row['wind_direction_deg'], row['wind_speed_kmh']))
+            INSERT OR IGNORE INTO observations (date, station_id, name, latitude, longitude, apparent_t, gust_kmh, gust_kt, air_temp, dewpt, press, press_msl, rel_hum, wind_direction_deg, wind_speed_kmh)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (row['date'], row['station_id'], row['name'], row['latitude'], row['longitude'], row['apparent_t'], row['gust_kmh'], row['gust_kt'], row['air_temp'], row['dewpt'], row['press'], row['press_msl'], row['rel_hum'], row['wind_direction_deg'], row['wind_speed_kmh']))
 
     conn.commit()
     conn.close()
+
 
 def archive_old_data():
     """Archive data older than RETENTION_DAYS."""
